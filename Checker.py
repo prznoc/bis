@@ -126,7 +126,7 @@ def checkFile(filepath):
     entropy = pd.DataFrame(data=[ent], index=rows, columns=columns)
 
     f, axarray = plt.subplots(5, 2, figsize=(15, 20))
-    days = 60
+    days = 50
 
     for i in range(len(frames)):
         et0 = entropyTrend(frames[i]['f'], days)
