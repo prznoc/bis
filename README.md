@@ -13,6 +13,8 @@ pip3 install pyshark
 
 sudo apt-get install tshark
 
+apt-get install python3-dev
+
 Command to run after installing tshark:
 
 sudo chmod +x /usr/bin/dumpcap
