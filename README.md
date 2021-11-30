@@ -1,9 +1,5 @@
 # bis
 
-Commands to run before installing networkit:
-
-sudo apt-get install python3-dev
-sudo apt install g++
 
 Commands to run NetLog.py
 
@@ -14,6 +10,7 @@ ip link show
 install libraries:
 
 pip3 install pyshark
+
 sudo apt-get install tshark
 
 Command to run after installing tshark:
@@ -23,3 +20,7 @@ sudo chmod +x /usr/bin/dumpcap
 run script:
 
 python3 NetLog.py [interface] [filename] [number of packets]
+
+run checker:
+
+python3 Checker.py [filepath]

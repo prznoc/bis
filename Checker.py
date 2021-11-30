@@ -8,6 +8,7 @@ from tensorflow.keras.layers import GRU
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+import sys
 
 look_back = 14
 
@@ -74,7 +75,6 @@ def checkFile(filepath):
     frames = []
     maxes = []
     ips = df['l_ipn'].unique()
-    print(ips)
     for i in ips:
         frames.append(df[df['l_ipn'] == i])
         maxes.append(np.max(frames[i]['f']))
@@ -100,6 +100,8 @@ def checkFile(filepath):
         axarray[i // 2, i % 2].plot(frames[i]['yday'], ip0f)
         axarray[i // 2, i % 2].plot(frames[i]['yday'], ypred0, color='r')
         axarray[i // 2, i % 2].set_title("Local IP " + str(i) + " Flow and prediction")
+
+    f.savefig('output/plot1.png')
 
     corrs = []
     for i in range(len(ipf)):
@@ -130,7 +132,10 @@ def checkFile(filepath):
         et0 = entropyTrend(frames[i]['f'], days)
         axarray[i // 2, i % 2].plot(range(len(et0)), et0)
         axarray[i // 2, i % 2].set_title("Local IP " + str(ips[i]) + " ApEn Variation")
-    print(entropy)
+
+    f.savefig('output/plot2.png')
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+        print(entropy)
 
 
-checkFile("archive/cs448b_ipasn.csv")
+checkFile(sys.argv[1])
