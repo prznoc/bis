@@ -19,6 +19,7 @@ class Checker:
             dataY.append(dataset['f'].iloc[i + look_back])
         return np.array(dataX), np.array(dataY)
 
+    # Train model on SNN, based on example dataset
     def train_model(self, data):
         data['f'] = data['f'].astype('float32')
         train = data[0:look_back * 5].copy()
@@ -33,7 +34,7 @@ class Checker:
         model.fit(trainX, trainY, epochs=100, batch_size=16, verbose=0)
         return model
 
-
+    # predict flow based on model
     def predict_flow(self, _model, data):
         ypred = [0] * look_back
         # _max = np.max(data['f'])
@@ -44,7 +45,7 @@ class Checker:
         # ypred=[v*_max for v in ypred]
         return ypred
 
-
+    # Calculate Approximate Entropy
     def ApEn(self, U, m, r):
         def _maxdist(x_i, x_j):
             return max([abs(ua - va) for ua, va in zip(x_i, x_j)])
@@ -64,12 +65,13 @@ class Checker:
         return etrend
 
 
+    # Convert file content to dataset
     def check_file(self, filepath):
         try:
             df = pd.read_csv(filepath)
 
             df['date'] = pd.to_datetime(df['date'])
-            df = df.groupby(['date', 'l_ipn'], as_index=False).sum()
+            df = df.groupby(['date', 'l_ipn'], as_index=False).sum()  # Divide into time periods
             df['yday'] = df['date'].dt.dayofyear
             df['wday'] = df['date'].dt.dayofweek
         except Exception as e:
@@ -93,6 +95,7 @@ class Checker:
         ypred = dict()
         ipf = dict()
 
+        # create png with predictions for each checked machine
         size = len(frames.keys())
         if size < 2:
             f, axarray = plt.subplots(1, 1, figsize=(6, 8))
@@ -131,9 +134,11 @@ class Checker:
         m = 2
         r = 3
         ent = dict()
+        # Calculate entropy for each checked machine
         for ip in frames.keys():
             ent[ip] = (self.ApEn(np.multiply(frames[ip]['f'].values, 1), m, r))
 
+        # create png with entropy trend for each checked machine
         size = len(frames.keys())
         if size < 2:
             f, axarray = plt.subplots(1, 1, figsize=(6, 8))

@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QFileDialog, QTe
 from NetLog import run_from_gui
 
 
+# Listener options Window
 class Option(QtWidgets.QDialog):
 
     options = QtCore.pyqtSignal(str)
@@ -29,6 +30,7 @@ class Option(QtWidgets.QDialog):
         self._lock = threading.Lock()
 
     def initUI(self):
+        # Elements of GUI
         self.label1 = QLabel(self)
         self.label1.setGeometry(110, 40, 180, 50)
         self.label1.setText("Select interface")
@@ -50,7 +52,7 @@ class Option(QtWidgets.QDialog):
 
         self.package_box = QLineEdit(self)
         self.package_box.setGeometry(20, 115, 80, 20)
-        self.onlyInt = QIntValidator()
+        self.onlyInt = QIntValidator()  # Validator is set to let pass only int data
         self.package_box.setValidator(self.onlyInt)
 
         self.filename_box = QLineEdit(self)
@@ -59,6 +61,7 @@ class Option(QtWidgets.QDialog):
         self.option_box = QCheckBox(self)
         self.option_box.setGeometry(90, 235, 80, 20)
 
+        # button to send data
         self.button_close = QPushButton(self)
         self.button_close.setGeometry(100, 280, 100, 50)
         self.button_close.setText("Accept")
@@ -71,9 +74,10 @@ class Option(QtWidgets.QDialog):
         result['filename'] = self.filename_box.text()
         result['option'] = str(self.option_box.isChecked())
 
-        self.options.emit(json.dumps(result))
+        self.options.emit(json.dumps(result))  # send data to main window
         self.close()
 
+# Main GUI Window
 class Example(QMainWindow):
 
     def __init__(self):
@@ -81,12 +85,13 @@ class Example(QMainWindow):
         self.setFixedSize(500, 260)
         self.initUI()
         self.messages = []
-        self.file = 'cs448b_ipasn.csv'
+        self.file = 'cs448b_ipasn.csv'  # default dataset
         self._lock = threading.Lock()
-        self.options = None
+        self.options = None  # options sent from Option Window, neccesary for data exchange
         self.listener = None
 
     def initUI(self):
+        # Interface elements
         self.button_open = QPushButton(self)
         self.button_open.setGeometry(90, 40, 100, 50)
         self.button_open.setText("Set file")
@@ -113,6 +118,7 @@ class Example(QMainWindow):
 
         self.show()
 
+    # Determines result of button click (shared by all buttons, 'value' passed to distinguish them)
     def __clicked_btn(self, value):
         if value == 1:
             self.__load_file()
@@ -123,12 +129,15 @@ class Example(QMainWindow):
         if value == 4:
             self.__reset_file()
 
+    # Set File
     def __load_file(self):
         home = str(Path.home())
+        # Open dialog to select source file
         dlg = QFileDialog(self, 'Network data', home)
         dlg.setModal(True)
         source_path = dlg.getOpenFileName()[0]
         url = QUrl.fromLocalFile(source_path)
+        # copy chosen file to /archive dir
         try:
             copyfile(source_path, 'archive/' + url.fileName())
             self.file = url.fileName()
@@ -140,23 +149,27 @@ class Example(QMainWindow):
             self.text_box.append("Loaded file: " + url.fileName())
             pass
 
+    # Run checker
     def __check(self, filename):
-        checker = CheckerThread(filename, self)
+        checker = CheckerThread(filename, self)  # start another thread
+        # 'connect' connects pyqtSignal object in checker with __display(text) method in self
         checker.message.connect(self.__display_text)
         checker.start()
 
+    # Run NetLog/Stop Listening
     def __listen(self):
-        if self.listener:
+        if self.listener:  # If listener is active, deactivate
             self.__disable_listener()
             return
-        option_window = Option()
-        option_window.setWindowModality(Qt.ApplicationModal)
-        option_window.options.connect(self.__listen_thread)
+        option_window = Option()  # process option selection window
+        option_window.setWindowModality(Qt.ApplicationModal)  # set to disable main window while choosing options
+        option_window.options.connect(self.__listen_thread)  # connection for data exchange
         option_window.show()
 
     def __listen_thread(self, options):
-        options = json.loads(options)
+        options = json.loads(options)  # load options from Option window
         check_option = False
+        # Validate values from option
         if options['option'] == 'True':
             check_option = True
         with self._lock:
@@ -167,10 +180,12 @@ class Example(QMainWindow):
             package = int(options['packages'])
         except Exception:
             pass
+        # Run listener in separate thread
         self.listener = ListenerThread(options['interface'], package, options['filename'], self,
                                   check_option)
         self.listener.message.connect(self.__display_text)
         self.listener.checker_activation.connect(self.__run_checker_from_listener)
+        # Change text on listener button
         self.button_listen.setText('Stop listening')
 
         self.listener.start()
@@ -184,6 +199,7 @@ class Example(QMainWindow):
         self.check_filename = 'cs448b_ipasn.csv'
         self.text_box.append("Restored default file")
 
+    # neccesary to display text from another thread
     def __display_text(self, text):
         with self._lock:
             self.text_box.append(text)
@@ -194,10 +210,11 @@ class Example(QMainWindow):
         self.__check(filename)
 
 
+# Listener thread class
 class ListenerThread(QThread):
 
-    message = pyqtSignal(str)
-    checker_activation = pyqtSignal(str)
+    message = pyqtSignal(str)  # necessary for data exchange
+    checker_activation = pyqtSignal(str)  # necessary for data exchange
 
     def __init__(self, interface, number, filename, parent, auto_check=False):
         QObject.__init__(self, parent)
@@ -208,11 +225,12 @@ class ListenerThread(QThread):
         self.files_amount = 0
 
     def __run_listener(self, interface, number, output_name):
-        return run_from_gui(interface, 'archive/' + output_name, number)
+        return run_from_gui(interface, 'archive/' + output_name, number)  # Run NetLog module
 
     def run(self):
+        # writes to separate files, limited by package option, until deactivated
         while True:
-            self.files_amount += 1
+            self.files_amount += 1  # no of processed file
             iteration_number = self.files_amount
 
             output_name = self.filename + str(iteration_number) + '.csv'
@@ -221,6 +239,7 @@ class ListenerThread(QThread):
                 self.checker_activation.emit('Something went wrong, check console for details')
                 break
             self.message.emit('listening finished, output saved to file ' + output_name)
+            # if relevant, check created file
             if result and self.auto_check:
                 self.checker_activation.emit(output_name)
 
@@ -228,9 +247,10 @@ class ListenerThread(QThread):
         self.terminate()
 
 
+# Separate checker thread
 class CheckerThread(QThread):
 
-    message = pyqtSignal(str)
+    message = pyqtSignal(str)  # necessary for data exchange
 
     def __init__(self, filename, parent):
         QObject.__init__(self, parent)
@@ -241,9 +261,11 @@ class CheckerThread(QThread):
         checker = Checker()
         entropy = checker.check_file('archive/' + self.filename)
         if type(entropy) is dict:
+            # display results
             for key in entropy.keys():
                 value = entropy[key]
                 message = 'is not suspicious'
+                # threshold based on example dataset
                 if value > 0.1:
                     message = 'is suspicious'
                 self.message.emit('Station with address ' + str(key) + ' ' + message + f', entropy value: {value:.3f}')

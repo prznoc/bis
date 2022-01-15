@@ -1,0 +1,2 @@
+There was a problem with lack of this directory.
+Dummy created to ensure it always exists
