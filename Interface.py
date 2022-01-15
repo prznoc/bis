@@ -43,7 +43,7 @@ class Option(QtWidgets.QDialog):
 
         self.label4 = QLabel(self)
         self.label4.setGeometry(110, 220, 180, 50)
-        self.label4.setText("Run Checker on completion?")
+        self.label4.setText("Run Checker on completion")
 
         self.interface_box = QLineEdit(self)
         self.interface_box.setGeometry(20, 55, 80, 20)
@@ -99,7 +99,7 @@ class Example(QMainWindow):
 
         self.button_listen = QPushButton(self)
         self.button_listen.setGeometry(310, 40, 100, 50)
-        self.button_listen.setText("Listen network")
+        self.button_listen.setText("Run NetLog")
         self.button_listen.clicked.connect(partial(self.__clicked_btn, 3))
 
         self.button_reset = QPushButton(self)
@@ -149,9 +149,6 @@ class Example(QMainWindow):
         if self.listener:
             self.__disable_listener()
             return
-        with self._lock:
-            self.text_box.append("listening")
-            self.text_box.repaint()
         option_window = Option()
         option_window.setWindowModality(Qt.ApplicationModal)
         option_window.options.connect(self.__listen_thread)
@@ -159,10 +156,12 @@ class Example(QMainWindow):
 
     def __listen_thread(self, options):
         options = json.loads(options)
-        print(options)
         check_option = False
         if options['option'] == 'True':
             check_option = True
+        with self._lock:
+            self.text_box.append("listening")
+            self.text_box.repaint()
         self.listener = ListenerThread(options['interface'], int(options['packages']), options['filename'], self,
                                   check_option)
         self.listener.message.connect(self.__display_text)
