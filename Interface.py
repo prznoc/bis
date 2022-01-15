@@ -6,7 +6,7 @@ from functools import partial
 from pathlib import Path
 
 from Checker import Checker
-from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import QObject, QThread, pyqtSignal, QUrl
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QFileDialog, QTextEdit
 from NetLog import run_from_gui
 
@@ -20,7 +20,7 @@ class Example(QWidget):
         self.messages = []
         self.file = 'cs448b_ipasn.csv'
         self._lock = threading.Lock()
-        self.files_amount = 0
+        self.listener_thread = None
 
     def initUI(self):
         self.button_open = QPushButton(self)
@@ -77,43 +77,85 @@ class Example(QWidget):
             pass
 
     def __check(self, filename):
-        with self._lock:
-            self.text_box.append('running checker on file: ' + filename)
-            self.text_box.repaint()
-        checker = Checker()
-        entropy = checker.check_file('archive/' + filename)
-        if type(entropy) is dict:
-            for key in entropy.keys():
-                value = entropy[key]
-                print(value)
-                message = 'is not suspicious'
-                if value > 0.1:
-                    message = 'is suspicious'
-                with self._lock:
-                    self.text_box.append('Station with address ' + str(key) + ' ' + message + f', entropy value: {value:.3f}')
-        else:
-            with self._lock:
-                self.text_box.append(entropy)
-
-    def __listen_async(self, interface, number):
-        with self._lock:
-            self.files_amount += 1
-            output_name = 'network' + str(self.files_amount) + '.csv'
-        result = run_from_gui(interface, 'archive/' + output_name, number)
-        with self._lock:
-            self.text_box.append('listening finished, output saved to file ' + output_name)
-        thread = threading.Thread(target=self.__listen_async, args=['enp0s3', number, ], daemon=True)
-        thread.start()
+        checker = CheckerThread(filename, self)
+        checker.message.connect(self.__display_text)
+        print('checker started')
+        checker.start()
 
     def __listen(self):
-        self.text_box.append("listening")
-        self.text_box.repaint()
-        thread = threading.Thread(target=self.__listen_async,args=['enp0s3', 1000,], daemon=True)
-        thread.start()
+        with self._lock:
+            self.text_box.append("listening")
+            self.text_box.repaint()
+        listener = ListenerThread('enp0s3', 1000, 'network', self, False)
+        listener.message.connect(self.__display_text)
+        listener.checker_activation.connect(self.__run_checker_from_listener)
+        print('listener started')
+        listener.start()
 
     def __reset_file(self):
         self.check_filename = 'cs448b_ipasn.csv'
         self.text_box.append("Restored default file")
+
+    def __display_text(self, text):
+        with self._lock:
+            self.text_box.append(text)
+            self.text_box.repaint()
+            self.text_box.update()
+
+    def __run_checker_from_listener(self, filename):
+        self.__check(filename)
+
+
+class ListenerThread(QThread):
+
+    message = pyqtSignal(str)
+    checker_activation = pyqtSignal(str)
+
+    def __init__(self, interface, number, filename, parent, auto_check=True):
+        QObject.__init__(self, parent)
+        self.interface = interface
+        self.number = number
+        self.filename = filename
+        self.auto_check = auto_check
+        self.files_amount = 0
+
+    def __run_listener(self, interface, number, output_name):
+        return run_from_gui(interface, 'archive/' + output_name, number)
+
+    def run(self):
+        while True:
+            self.files_amount += 1
+            iteration_number = self.files_amount
+            print('message' + str(iteration_number))
+            output_name = self.filename + str(iteration_number) + '.csv'
+            result = self.__run_listener(self.interface, self.number, output_name)
+            print(result)
+            self.message.emit('listening finished, output saved to file ' + output_name)
+            if result and self.auto_check:
+                self.checker_activation.emit(output_name)
+
+
+class CheckerThread(QThread):
+
+    message = pyqtSignal(str)
+
+    def __init__(self, filename, parent):
+        QObject.__init__(self, parent)
+        self.filename = filename
+
+    def run(self):
+        self.message.emit('running checker on file: ' + self.filename)
+        checker = Checker()
+        entropy = checker.check_file('archive/' + self.filename)
+        if type(entropy) is dict:
+            for key in entropy.keys():
+                value = entropy[key]
+                message = 'is not suspicious'
+                if value > 0.1:
+                    message = 'is suspicious'
+                self.message.emit('Station with address ' + str(key) + ' ' + message + f', entropy value: {value:.3f}')
+        else:
+            self.message.emit(entropy)
 
 
 if __name__ == '__main__':
