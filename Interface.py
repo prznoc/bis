@@ -60,7 +60,7 @@ class Option(QtWidgets.QDialog):
         self.option_box.setGeometry(90, 235, 80, 20)
 
         self.button_close = QPushButton(self)
-        self.button_close.setGeometry(80, 280, 100, 50)
+        self.button_close.setGeometry(100, 280, 100, 50)
         self.button_close.setText("Accept")
         self.button_close.clicked.connect(partial(self.__clicked_btn))
 
@@ -162,7 +162,12 @@ class Example(QMainWindow):
         with self._lock:
             self.text_box.append("listening")
             self.text_box.repaint()
-        self.listener = ListenerThread(options['interface'], int(options['packages']), options['filename'], self,
+        package = 1000
+        try:
+            package = int(options['packages'])
+        except Exception:
+            pass
+        self.listener = ListenerThread(options['interface'], package, options['filename'], self,
                                   check_option)
         self.listener.message.connect(self.__display_text)
         self.listener.checker_activation.connect(self.__run_checker_from_listener)
@@ -212,6 +217,9 @@ class ListenerThread(QThread):
 
             output_name = self.filename + str(iteration_number) + '.csv'
             result = self.__run_listener(self.interface, self.number, output_name)
+            if not result:
+                self.checker_activation.emit('Something went wrong, check console for details')
+                break
             self.message.emit('listening finished, output saved to file ' + output_name)
             if result and self.auto_check:
                 self.checker_activation.emit(output_name)

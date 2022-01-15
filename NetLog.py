@@ -5,7 +5,11 @@ from netifaces import interfaces, ifaddresses, AF_INET
 
 
 def capture_live_packets(network_interface, number): #główna funkcja modułu, nasłuchuje ruchu sieciowego na określonym porcie i zapisuje N próbek do dziennika
-    local_ip = ifaddresses(network_interface).setdefault(AF_INET)[0]['addr'] #pobranie lokalnego ip maszyny
+    try:
+        local_ip = ifaddresses(network_interface).setdefault(AF_INET)[0]['addr'] #pobranie lokalnego ip maszyny
+    except Exception as e:
+        print(e)
+        return False
     dict = {}
     capture = pyshark.LiveCapture(interface=network_interface)
     for raw_packet in capture.sniff_continuously():
@@ -40,12 +44,15 @@ def write_to_file(dict, filename, date): #zapisanie wewnętrznego dziennika do p
 def run_logger(interface, filename, number):
     date = get_today_datetime()
     dict = capture_live_packets(interface, number)
+    if not dict:
+        return False
     write_to_file(dict, filename, date)
+    return True
 
 
 def run_from_gui(interface, filename, number):
-    run_logger(interface, filename, number)
-    return True
+    result = run_logger(interface, filename, number)
+    return result
 
 def main():
     interface = str(sys.argv[1])
