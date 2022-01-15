@@ -1,14 +1,14 @@
 import shutil
 import sys
+import threading
 from shutil import copyfile
 from functools import partial
 from pathlib import Path
-import warnings
 
-import Checker
-from PyQt5.QtCore import QUrl, Qt
-from PyQt5.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTextEdit
-from PyQt5.uic.properties import QtCore
+from Checker import Checker
+from PyQt5.QtCore import QUrl
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QFileDialog, QTextEdit
+from NetLog import run_from_gui
 
 
 class Example(QWidget):
@@ -19,6 +19,8 @@ class Example(QWidget):
         self.initUI()
         self.messages = []
         self.file = 'cs448b_ipasn.csv'
+        self._lock = threading.Lock()
+        self.files_amount = 0
 
     def initUI(self):
         self.button_open = QPushButton(self)
@@ -51,7 +53,7 @@ class Example(QWidget):
         if value == 1:
             self.__load_file()
         if value == 2:
-            self.__check()
+            self.__check(self.file)
         if value == 3:
             self.__listen()
         if value == 4:
@@ -74,9 +76,12 @@ class Example(QWidget):
             self.text_box.append("Loaded file: " + url.fileName())
             pass
 
-    def __check(self):
-        self.text_box.append('running checker on file: ' + self.file)
-        entropy = Checker.check_file('archive/' + self.file)
+    def __check(self, filename):
+        with self._lock:
+            self.text_box.append('running checker on file: ' + filename)
+            self.text_box.repaint()
+        checker = Checker()
+        entropy = checker.check_file('archive/' + filename)
         if type(entropy) is dict:
             for key in entropy.keys():
                 value = entropy[key]
@@ -84,13 +89,27 @@ class Example(QWidget):
                 message = 'is not suspicious'
                 if value > 0.1:
                     message = 'is suspicious'
-                self.text_box.append('Station with address ' + str(key) + ' ' + message + f', entropy value: {value:.3f}')
+                with self._lock:
+                    self.text_box.append('Station with address ' + str(key) + ' ' + message + f', entropy value: {value:.3f}')
         else:
-            self.text_box.append(entropy)
+            with self._lock:
+                self.text_box.append(entropy)
+
+    def __listen_async(self, interface, number):
+        with self._lock:
+            self.files_amount += 1
+            output_name = 'network' + str(self.files_amount) + '.csv'
+        result = run_from_gui(interface, 'archive/' + output_name, number)
+        with self._lock:
+            self.text_box.append('listening finished, output saved to file ' + output_name)
+        thread = threading.Thread(target=self.__listen_async, args=['enp0s3', number, ], daemon=True)
+        thread.start()
 
     def __listen(self):
-        print('listening')
         self.text_box.append("listening")
+        self.text_box.repaint()
+        thread = threading.Thread(target=self.__listen_async,args=['enp0s3', 1000,], daemon=True)
+        thread.start()
 
     def __reset_file(self):
         self.check_filename = 'cs448b_ipasn.csv'
@@ -98,7 +117,6 @@ class Example(QWidget):
 
 
 if __name__ == '__main__':
-    warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
     ex = Example()
     sys.exit(app.exec_())

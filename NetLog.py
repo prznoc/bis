@@ -3,6 +3,7 @@ from datetime import datetime
 import sys
 from netifaces import interfaces, ifaddresses, AF_INET
 
+
 def capture_live_packets(network_interface, number):
     local_ip = ifaddresses(network_interface).setdefault(AF_INET)[0]['addr']
     dict = {}
@@ -35,12 +36,23 @@ def write_to_file(dict, filename, date):
         f.write(date+','+d+','+str(dict[d])+'\n')
     f.close()
 
+
+def run_logger(interface, filename, number):
+    date = get_today_datetime()
+    dict = capture_live_packets(interface, number)
+    write_to_file(dict, filename, date)
+
+
+def run_from_gui(interface, filename, number):
+    run_logger(interface, filename, number)
+    return True
+
 def main():
     interface = str(sys.argv[1])
     filename = str(sys.argv[2])
-    date = get_today_datetime()
-    dict = capture_live_packets(interface,int(sys.argv[3]))
-    write_to_file(dict,filename,date)
+    number = int(sys.argv[3])
+    run_logger(interface, filename, number)
+
 
 if __name__ == '__main__':
     main()
