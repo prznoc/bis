@@ -4,8 +4,8 @@ import sys
 from netifaces import interfaces, ifaddresses, AF_INET
 
 
-def capture_live_packets(network_interface, number):
-    local_ip = ifaddresses(network_interface).setdefault(AF_INET)[0]['addr']
+def capture_live_packets(network_interface, number): #główna funkcja modułu, nasłuchuje ruchu sieciowego na określonym porcie i zapisuje N próbek do dziennika
+    local_ip = ifaddresses(network_interface).setdefault(AF_INET)[0]['addr'] #pobranie lokalnego ip maszyny
     dict = {}
     capture = pyshark.LiveCapture(interface=network_interface)
     for raw_packet in capture.sniff_continuously():
@@ -17,7 +17,7 @@ def capture_live_packets(network_interface, number):
             return dict
     return dict
 
-def save_to_dict(packet, local_ip, dict):
+def save_to_dict(packet, local_ip, dict): #zapisuje pakiet do dziennika
     if("ip" not in packet or packet.ip.dst == local_ip):
         return
     str = packet.ip.src+','+packet.ip.dst
@@ -26,10 +26,10 @@ def save_to_dict(packet, local_ip, dict):
     else:
         dict[str] = 1
 
-def get_today_datetime():
+def get_today_datetime(): #zwraca aktualną datę
     return datetime.today().strftime('%Y-%m-%d')
 
-def write_to_file(dict, filename, date):
+def write_to_file(dict, filename, date): #zapisanie wewnętrznego dziennika do pliku o odpowiednim formacie
     f = open(filename, "w")
     f.write("date,l_ipn,r_asn,f\n")
     for d in dict:
