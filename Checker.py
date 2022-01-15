@@ -141,8 +141,9 @@ class Checker:
             f, axarray = plt.subplots(size // 2, 2, figsize=(size // 2 * 3, size // 2 * 4))
         j = 0
 
+        days = 50
+
         for i in frames.keys():
-            days = len(frames[i]['f'])//10 * 10
             et0 = self.entropy_trend(frames[i]['f'], days)
             if size < 2:
                 axarray.plot(range(len(et0)), et0)
