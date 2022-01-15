@@ -273,8 +273,11 @@ class CheckerThread(QThread):
             self.message.emit(entropy)
 
 
-if __name__ == '__main__':
+def main():
     app = QApplication(sys.argv)
     ex = Example()
     sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()    
 
